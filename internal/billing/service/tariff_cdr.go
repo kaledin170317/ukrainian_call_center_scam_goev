@@ -177,28 +177,16 @@ func (s *Service) TariffCDRStream(ctx context.Context, r io.Reader, opt model.Op
 
 	sc := bufio.NewScanner(r)
 	sc.Buffer(make([]byte, 0, 64*1024), 1024*1024)
-	fields := make([]string, 12)
 
 	var seq uint64
 	for sc.Scan() {
+
 		if jobCtx.Err() != nil {
 			batch.setErr(jobCtx.Err())
 			break
 		}
 
-		line := strings.TrimSpace(sc.Text())
-		if line == "" {
-			continue
-		}
-
-		if !splitExact(line, '|', fields) {
-			batch.setErr(fmt.Errorf("cdr: expected 12 fields: %q", line))
-			cancel()
-			break
-		}
-		for i := range fields {
-			fields[i] = unquoteLoose(fields[i])
-		}
+		fields := strings.Split(sc.Text(), "|")
 
 		start, err := time.ParseInLocation(cdrLayout, fields[0], s.loc)
 		if err != nil {
@@ -206,6 +194,7 @@ func (s *Service) TariffCDRStream(ctx context.Context, r io.Reader, opt model.Op
 			cancel()
 			break
 		}
+
 		end, err := time.ParseInLocation(cdrLayout, fields[1], s.loc)
 		if err != nil {
 			batch.setErr(fmt.Errorf("cdr: bad EndTime %q: %w", fields[1], err))

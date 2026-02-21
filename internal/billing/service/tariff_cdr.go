@@ -160,7 +160,7 @@ func (b *cdrBatch) add(sub model.Subscriber, cdr model.CDRRecord, cost model.Mon
 }
 
 // TariffCDRStream reads CDR stream in the caller goroutine and enqueues parsed rows into
-// a global in-service queue. Background workers (started in NewWithConfig) are always running
+// a global in-service queue. Background workers (started in New) are always running
 // and consume from this queue.
 func (s *Service) TariffCDRStream(ctx context.Context, r io.Reader, opt model.Options) (model.Report, error) {
 	if err := s.ensureOpen(); err != nil {

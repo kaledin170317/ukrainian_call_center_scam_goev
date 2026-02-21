@@ -25,8 +25,6 @@ const (
 	dateLayout = "2006-01-02"
 )
 
-// Config controls Service runtime behavior.
-// Zero values are replaced with sensible defaults.
 type Config struct {
 	Location     *time.Location
 	CDRWorkers   int
@@ -50,8 +48,7 @@ type Service struct {
 	wg         sync.WaitGroup
 }
 
-func NewWithConfig(tariffs repo.TariffRepository, subs repo.SubscriberRepository, location *time.Location, cdrWorkers int) *Service {
-
+func New(tariffs repo.TariffRepository, subs repo.SubscriberRepository, location *time.Location, cdrWorkers int) *Service {
 	s := &Service{
 		tariffs:    tariffs,
 		subs:       subs,

@@ -31,7 +31,7 @@ func main() {
 	subscriberRepo := memory2.NewSubscriberMemoryRepo()
 
 	// Service
-	svc := billing.NewWithConfig(tariffRepo, subscriberRepo, time.UTC, 2)
+	svc := billing.New(tariffRepo, subscriberRepo, time.UTC, 2)
 
 	// HTTP handlers
 	h := httpapi.NewHandler(svc)

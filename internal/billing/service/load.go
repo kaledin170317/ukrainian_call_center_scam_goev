@@ -21,33 +21,23 @@ import (
 	"ukrainian_call_center_scam_goev/internal/billing/model"
 )
 
+const (
+	tariffsHeader     = "prefix;destination;rate_per_min;connection_fee;timeband;weekday;priority;effective_date;expiry_date"
+	subscribersHeader = "phone_number;client_name"
+)
+
 func (s *Service) LoadTariffs(ctx context.Context, r io.Reader) error {
 	sc := bufio.NewScanner(r)
 	sc.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+	rules := make([]model.TariffRule, 0)
+	sc.Scan()
+	if sc.Text() != tariffsHeader {
+		return fmt.Errorf("expected tariffs header: %q, actual: %q", tariffsHeader, sc.Text())
+	}
 
-	fields := make([]string, 8)
-	var rules []model.TariffRule
-
-	first := true
 	for sc.Scan() {
-		line := strings.TrimSpace(sc.Text())
-		if line == "" {
-			continue
-		}
 
-		if !splitExact(line, ';', fields) {
-			return fmt.Errorf("tariffs: expected 8 fields: %q", line)
-		}
-		for i := range fields {
-			fields[i] = unquoteLoose(fields[i])
-		}
-
-		// header
-		if first && strings.EqualFold(fields[0], "prefix") {
-			first = false
-			continue
-		}
-		first = false
+		fields := strings.Split(sc.Text(), ";")
 
 		rate, err := model.ParseMoney(fields[2])
 		if err != nil {
@@ -99,37 +89,21 @@ func (s *Service) LoadTariffs(ctx context.Context, r io.Reader) error {
 func (s *Service) LoadSubscribers(ctx context.Context, r io.Reader) error {
 	sc := bufio.NewScanner(r)
 	sc.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+	subs := make([]model.Subscriber, 0)
 
-	fields := make([]string, 2)
-	var subs []model.Subscriber
+	sc.Scan()
+	if sc.Text() != subscribersHeader {
+		return fmt.Errorf("expected tariffs header: %q, actual: %q", subscribersHeader, sc.Text())
+	}
 
-	first := true
 	for sc.Scan() {
-		line := strings.TrimSpace(sc.Text())
-		if line == "" {
-			continue
-		}
-		if !splitExact(line, ';', fields) {
-			return fmt.Errorf("subscribers: expected 2 fields: %q", line)
-		}
-		for i := range fields {
-			fields[i] = unquoteLoose(fields[i])
-		}
-
-		if first && strings.EqualFold(fields[0], "phone_number") {
-			first = false
-			continue
-		}
-		first = false
-
-		subs = append(subs, model.Subscriber{
-			PhoneNumber: fields[0],
-			ClientName:  fields[1],
-		})
+		fields := strings.Split(sc.Text(), ";")
+		subs = append(subs, model.Subscriber{PhoneNumber: fields[0], ClientName: fields[1]})
 	}
 
 	if err := sc.Err(); err != nil {
 		return fmt.Errorf("read subscribers: %w", err)
 	}
+
 	return s.subs.ReplaceAll(ctx, subs)
 }

@@ -16,6 +16,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"ukrainian_call_center_scam_goev/internal/billing/model"
 	"ukrainian_call_center_scam_goev/internal/billing/repo"
 )
 
@@ -78,4 +79,50 @@ func (s *Service) ensureOpen() error {
 		return fmt.Errorf("billing service is closed")
 	}
 	return nil
+}
+
+func (s *Service) startWorkers() {
+	s.wg.Add(s.cdrWorkers)
+	for i := 0; i < s.cdrWorkers; i++ {
+		go s.cdrWorker()
+	}
+}
+
+func (s *Service) cdrWorker() {
+	defer s.wg.Done()
+
+	for {
+		select {
+		case <-s.stopCtx.Done():
+			return
+		case job := <-s.jobs:
+			b := job.batch
+			if job.ctx.Err() != nil {
+				b.finishOne()
+				continue
+			}
+
+			subPhone := job.cdr.CallingParty
+			sub, ok, err := s.subs.GetByPhone(job.ctx, subPhone)
+			if err != nil {
+				b.setErr(err)
+				b.finishOne()
+				continue
+			}
+			if !ok {
+				sub = model.Subscriber{PhoneNumber: subPhone}
+			}
+
+			var best *model.TariffRule
+			var cost model.Money
+
+			if job.cdr.Direction == model.DirOutgoing {
+				best = s.matchBestTariff(job.ctx, job.cdr.CalledParty, job.cdr.StartTime)
+				cost = calcCost(job.cdr, best)
+			}
+
+			b.add(sub, job.cdr, cost, best, job.seq)
+			b.finishOne()
+		}
+	}
 }

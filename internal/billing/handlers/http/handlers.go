@@ -100,7 +100,7 @@ func (h *Handler) tariffCDRStream(w http.ResponseWriter, r *http.Request) {
 	//	totalBytes = r.ContentLength
 	//}
 
-	report, err := h.svc.TariffCDRStream(ctx, reader, billing.Options{
+	report, err := h.svc.TariffCDRStream(ctx, reader, model.Options{
 		CollectCalls: collectCalls,
 		//TotalBytes:   totalBytes,
 		// ProgressEvery/OnProgress можно подключить позже (SSE/WS), хендлер не меняется.

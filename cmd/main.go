@@ -18,17 +18,17 @@ import (
 	"syscall"
 	"time"
 
-	httpapi "ukrainian_call_center_scam_goev/internal/handlers/http"
-	"ukrainian_call_center_scam_goev/internal/repo/memory"
-	"ukrainian_call_center_scam_goev/internal/service"
+	httpapi "ukrainian_call_center_scam_goev/internal/billing/handlers/http"
+	memory2 "ukrainian_call_center_scam_goev/internal/billing/repo/memory"
+	"ukrainian_call_center_scam_goev/internal/billing/service"
 	"ukrainian_call_center_scam_goev/web"
 )
 
 func main() {
 	addr := env("ADDR", ":8080")
 
-	tariffRepo := memory.NewTariffMemoryRepo()
-	subscriberRepo := memory.NewSubscriberMemoryRepo()
+	tariffRepo := memory2.NewTariffMemoryRepo()
+	subscriberRepo := memory2.NewSubscriberMemoryRepo()
 
 	// Service
 	svc := billing.New(tariffRepo, subscriberRepo)

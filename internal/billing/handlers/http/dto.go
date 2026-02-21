@@ -9,8 +9,6 @@
 
 package http
 
-// DTO для ошибок/успеха
-
 type ErrorResponse struct {
 	Error ErrorBody `json:"error"`
 }
@@ -28,8 +26,6 @@ type UploadResponse struct {
 	Status string `json:"status"`
 }
 
-// ===== DTO ответа тарификации =====
-
 type SubscriberTotalDTO struct {
 	PhoneNumber  string `json:"phone_number"`
 	ClientName   string `json:"client_name,omitempty"`
@@ -44,8 +40,8 @@ type AppliedTariffRefDTO struct {
 }
 
 type RatedCallDTO struct {
-	StartTime string `json:"start_time"` // RFC3339
-	EndTime   string `json:"end_time"`   // RFC3339
+	StartTime string `json:"start_time"`
+	EndTime   string `json:"end_time"`
 
 	CallingParty  string `json:"calling_party"`
 	CalledParty   string `json:"called_party"`

@@ -13,20 +13,20 @@ import (
 	"context"
 	"sync/atomic"
 
-	"ukrainian_call_center_scam_goev/internal/model"
+	"ukrainian_call_center_scam_goev/internal/billing/model"
 )
 
-type subscriberSnapshot struct {
+type subSnap struct {
 	byPhone map[string]model.Subscriber
 }
 
 type SubscriberMemoryRepo struct {
-	v atomic.Value // *subscriberSnapshot (immutable)
+	v atomic.Value // *subSnap
 }
 
 func NewSubscriberMemoryRepo() *SubscriberMemoryRepo {
 	r := &SubscriberMemoryRepo{}
-	r.v.Store(&subscriberSnapshot{byPhone: make(map[string]model.Subscriber)})
+	r.v.Store(&subSnap{byPhone: map[string]model.Subscriber{}})
 	return r
 }
 
@@ -35,18 +35,16 @@ func (r *SubscriberMemoryRepo) ReplaceAll(ctx context.Context, subs []model.Subs
 
 	m := make(map[string]model.Subscriber, len(subs))
 	for _, s := range subs {
-		// ключ = PhoneNumber
 		m[s.PhoneNumber] = s
 	}
-
-	r.v.Store(&subscriberSnapshot{byPhone: m})
+	r.v.Store(&subSnap{byPhone: m})
 	return nil
 }
 
 func (r *SubscriberMemoryRepo) GetByPhone(ctx context.Context, phone string) (model.Subscriber, bool, error) {
 	_ = ctx
 
-	snap := r.v.Load().(*subscriberSnapshot)
-	sub, ok := snap.byPhone[phone]
+	s := r.v.Load().(*subSnap)
+	sub, ok := s.byPhone[phone]
 	return sub, ok, nil
 }

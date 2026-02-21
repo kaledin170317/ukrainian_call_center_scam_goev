@@ -21,6 +21,7 @@ func (s *Service) matchBestTariff(ctx context.Context, called string, at time.Ti
 	wd := weekdayBit(at.Weekday())
 
 	var best *model.TariffRule
+
 	bestPriority := -1
 	bestPrefixLen := -1
 
@@ -28,11 +29,13 @@ func (s *Service) matchBestTariff(ctx context.Context, called string, at time.Ti
 		if !isApplicable(rule, at, atMin, wd) {
 			return true
 		}
+
 		if rule.Priority > bestPriority || (rule.Priority == bestPriority && prefixLen > bestPrefixLen) {
 			best = rule
 			bestPriority = rule.Priority
 			bestPrefixLen = prefixLen
 		}
+
 		return true
 	})
 
@@ -43,15 +46,18 @@ func isApplicable(rule *model.TariffRule, at time.Time, atMin int, wd uint8) boo
 	if at.Before(rule.EffectiveStart) || !at.Before(rule.ExpiryExclusive) {
 		return false
 	}
+
 	if rule.WeekdayMask != 0 && (rule.WeekdayMask&(1<<wd)) == 0 {
 		return false
 	}
 
 	a := rule.Timeband.StartMin
+
 	b := rule.Timeband.EndMin
 	if a < b {
 		return atMin >= a && atMin < b
 	}
+
 	return atMin >= a || atMin < b
 }
 
@@ -64,6 +70,8 @@ func calcCost(cdr model.CDRRecord, rule *model.TariffRule) model.Money {
 	if cdr.Disposition == model.DispAnswered {
 		cost += rule.ConnectionFee
 	}
+
 	cost += model.Money((int64(rule.RatePerMin) * int64(cdr.BillableSec)) / 60)
+
 	return cost
 }

@@ -55,6 +55,7 @@ func main() {
 	// graceful shutdown
 	go func() {
 		log.Printf("HTTP server listening on %s", addr)
+
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("listen: %v", err)
 		}
@@ -65,6 +66,7 @@ func main() {
 	<-stop
 
 	log.Println("shutdown: start")
+
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -80,12 +82,14 @@ func env(key, def string) string {
 	if v == "" {
 		return def
 	}
+
 	return v
 }
 
 func withRequestLog(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
+
 		next.ServeHTTP(w, r)
 		log.Printf("%s %s %s", r.Method, r.URL.Path, time.Since(start))
 	})

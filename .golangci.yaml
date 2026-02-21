@@ -1,0 +1,21 @@
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  enable:
+    - asciicheck
+    - goconst
+    - gocritic
+    - intrange
+    - lll
+    - predeclared
+    - protogetter
+    - sloglint
+    - staticcheck
+    - whitespace
+    - wsl_v5
+    - funcorder
+  disable:
+    - errcheck

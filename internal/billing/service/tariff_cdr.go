@@ -23,9 +23,6 @@ import (
 	"ukrainian_call_center_scam_goev/internal/billing/model"
 )
 
-// cdr.txt: 12 полей через |
-// StartTime|EndTime|CallingParty|CalledParty|CallDirection|Disposition|Duration|BillableSec|Charge|AccountCode|CallID|TrunkName
-
 type cdrJob struct {
 	ctx   context.Context
 	batch *cdrBatch
@@ -69,6 +66,7 @@ func newCDRBatch(collectCalls bool) *cdrBatch {
 	if collectCalls {
 		b.calls = make([]ratedCallSeq, 0, 1024)
 	}
+
 	return b
 }
 
@@ -76,7 +74,9 @@ func (b *cdrBatch) setErr(err error) {
 	if err == nil {
 		return
 	}
+
 	b.errMu.Lock()
+
 	if b.err == nil {
 		b.err = err
 		b.errMu.Unlock()
@@ -85,8 +85,10 @@ func (b *cdrBatch) setErr(err error) {
 				b.cancel()
 			}
 		})
+
 		return
 	}
+
 	b.errMu.Unlock()
 }
 
@@ -94,6 +96,7 @@ func (b *cdrBatch) getErr() error {
 	b.errMu.Lock()
 	err := b.err
 	b.errMu.Unlock()
+
 	return err
 }
 
@@ -109,12 +112,19 @@ func (b *cdrBatch) finishOne() {
 
 func (b *cdrBatch) markReadingDone() {
 	b.readingDone.Store(true)
+
 	if atomic.LoadInt64(&b.pending) == 0 {
 		b.doneOnce.Do(func() { close(b.done) })
 	}
 }
 
-func (b *cdrBatch) add(sub model.Subscriber, cdr model.CDRRecord, cost model.Money, best *model.TariffRule, seq uint64) {
+func (b *cdrBatch) add(
+	sub model.Subscriber,
+	cdr model.CDRRecord,
+	cost model.Money,
+	best *model.TariffRule,
+	seq uint64,
+) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -179,8 +189,8 @@ func (s *Service) TariffCDRStream(ctx context.Context, r io.Reader, opt model.Op
 	sc.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 
 	var seq uint64
-	for sc.Scan() {
 
+	for sc.Scan() {
 		if jobCtx.Err() != nil {
 			batch.setErr(jobCtx.Err())
 			break
@@ -192,6 +202,7 @@ func (s *Service) TariffCDRStream(ctx context.Context, r io.Reader, opt model.Op
 		if err != nil {
 			batch.setErr(fmt.Errorf("cdr: bad StartTime %q: %w", fields[0], err))
 			cancel()
+
 			break
 		}
 
@@ -199,6 +210,7 @@ func (s *Service) TariffCDRStream(ctx context.Context, r io.Reader, opt model.Op
 		if err != nil {
 			batch.setErr(fmt.Errorf("cdr: bad EndTime %q: %w", fields[1], err))
 			cancel()
+
 			break
 		}
 
@@ -206,12 +218,15 @@ func (s *Service) TariffCDRStream(ctx context.Context, r io.Reader, opt model.Op
 		if err != nil {
 			batch.setErr(fmt.Errorf("cdr: bad Duration %q: %w", fields[6], err))
 			cancel()
+
 			break
 		}
+
 		bill, err := atoiFast(fields[7])
 		if err != nil {
 			batch.setErr(fmt.Errorf("cdr: bad BillableSec %q: %w", fields[7], err))
 			cancel()
+
 			break
 		}
 
@@ -242,19 +257,15 @@ func (s *Service) TariffCDRStream(ctx context.Context, r io.Reader, opt model.Op
 
 		select {
 		case s.jobs <- job:
-			// ok
 		case <-jobCtx.Done():
 			batch.setErr(jobCtx.Err())
-			batch.finishOne() // compensate incPending
-			break
+			batch.finishOne()
 		case <-s.stopCtx.Done():
 			batch.setErr(fmt.Errorf("billing service stopped"))
 			batch.finishOne()
 			cancel()
-			break
 		}
 
-		// if a worker already produced an error (repo, etc.) — stop feeding more
 		if batch.getErr() != nil {
 			break
 		}
@@ -287,11 +298,13 @@ func (s *Service) TariffCDRStream(ctx context.Context, r io.Reader, opt model.Op
 	for _, v := range batch.totals {
 		totals = append(totals, *v)
 	}
+
 	sort.Slice(totals, func(i, j int) bool { return totals[i].PhoneNumber < totals[j].PhoneNumber })
 
 	var calls []model.RatedCall
 	if opt.CollectCalls {
 		sort.Slice(batch.calls, func(i, j int) bool { return batch.calls[i].seq < batch.calls[j].seq })
+
 		calls = make([]model.RatedCall, len(batch.calls))
 		for i := range batch.calls {
 			calls[i] = batch.calls[i].call

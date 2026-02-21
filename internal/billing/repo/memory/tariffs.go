@@ -30,6 +30,7 @@ type TariffMemoryRepo struct {
 func NewTariffMemoryRepo() *TariffMemoryRepo {
 	r := &TariffMemoryRepo{}
 	r.v.Store(&tariffSnap{byPrefix: map[string][]int{}})
+
 	return r
 }
 
@@ -44,6 +45,7 @@ func (r *TariffMemoryRepo) ReplaceAll(ctx context.Context, rules []model.TariffR
 
 	for i := range rs {
 		p := rs[i].Prefix
+
 		byPrefix[p] = append(byPrefix[p], i)
 		if len(p) > maxL {
 			maxL = len(p)
@@ -55,10 +57,15 @@ func (r *TariffMemoryRepo) ReplaceAll(ctx context.Context, rules []model.TariffR
 		byPrefix:     byPrefix,
 		maxPrefixLen: maxL,
 	})
+
 	return nil
 }
 
-func (r *TariffMemoryRepo) VisitByNumber(ctx context.Context, number string, visit func(rule *model.TariffRule, prefixLen int) bool) error {
+func (r *TariffMemoryRepo) VisitByNumber(
+	ctx context.Context,
+	number string,
+	visit func(rule *model.TariffRule, prefixLen int) bool,
+) error {
 	_ = ctx
 
 	s := r.v.Load().(*tariffSnap)
@@ -79,16 +86,19 @@ func (r *TariffMemoryRepo) VisitByNumber(ctx context.Context, number string, vis
 	// Идём от длинного префикса к короткому
 	for l := maxL; l >= 1; l-- {
 		prefix := n[:l]
+
 		idxs := s.byPrefix[prefix]
 		if len(idxs) == 0 {
 			continue
 		}
+
 		for _, idx := range idxs {
 			if !visit(&s.rules[idx], l) {
 				return nil
 			}
 		}
 	}
+
 	return nil
 }
 
@@ -97,8 +107,10 @@ func normalizeNumber(s string) string {
 	if s == "" {
 		return ""
 	}
+
 	if s[0] == '+' {
 		s = s[1:]
 	}
+
 	return s
 }

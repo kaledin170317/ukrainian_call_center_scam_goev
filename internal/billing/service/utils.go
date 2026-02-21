@@ -19,12 +19,8 @@ func weekdayBit(w time.Weekday) uint8 {
 	if w == time.Sunday {
 		return 7
 	}
-	return uint8(w)
-}
 
-func startOfDay(t time.Time) time.Time {
-	y, m, d := t.Date()
-	return time.Date(y, m, d, 0, 0, 0, 0, t.Location())
+	return uint8(w)
 }
 
 func atoiFast(s string) (int, error) {
@@ -32,13 +28,17 @@ func atoiFast(s string) (int, error) {
 	if s == "" {
 		return 0, fmt.Errorf("empty int")
 	}
+
 	n := 0
-	for i := 0; i < len(s); i++ {
+
+	for i := range len(s) {
 		c := s[i]
 		if c < '0' || c > '9' {
 			return 0, fmt.Errorf("bad int %q", s)
 		}
+
 		n = n*10 + int(c-'0')
 	}
+
 	return n, nil
 }

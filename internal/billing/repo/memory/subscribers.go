@@ -27,6 +27,7 @@ type SubscriberMemoryRepo struct {
 func NewSubscriberMemoryRepo() *SubscriberMemoryRepo {
 	r := &SubscriberMemoryRepo{}
 	r.v.Store(&subSnap{byPhone: map[string]model.Subscriber{}})
+
 	return r
 }
 
@@ -37,7 +38,9 @@ func (r *SubscriberMemoryRepo) ReplaceAll(ctx context.Context, subs []model.Subs
 	for _, s := range subs {
 		m[s.PhoneNumber] = s
 	}
+
 	r.v.Store(&subSnap{byPhone: m})
+
 	return nil
 }
 
@@ -46,5 +49,6 @@ func (r *SubscriberMemoryRepo) GetByPhone(ctx context.Context, phone string) (mo
 
 	s := r.v.Load().(*subSnap)
 	sub, ok := s.byPhone[phone]
+
 	return sub, ok, nil
 }

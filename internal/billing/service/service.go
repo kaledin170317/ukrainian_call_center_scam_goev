@@ -48,7 +48,12 @@ type Service struct {
 	wg         sync.WaitGroup
 }
 
-func New(tariffs repo.TariffRepository, subs repo.SubscriberRepository, location *time.Location, cdrWorkers int) *Service {
+func New(
+	tariffs repo.TariffRepository,
+	subs repo.SubscriberRepository,
+	location *time.Location,
+	cdrWorkers int,
+) *Service {
 	s := &Service{
 		tariffs:    tariffs,
 		subs:       subs,
@@ -75,12 +80,14 @@ func (s *Service) ensureOpen() error {
 	if s.closed.Load() {
 		return fmt.Errorf("billing service is closed")
 	}
+
 	return nil
 }
 
 func (s *Service) startWorkers() {
 	s.wg.Add(s.cdrWorkers)
-	for i := 0; i < s.cdrWorkers; i++ {
+
+	for range s.cdrWorkers {
 		go s.cdrWorker()
 	}
 }
@@ -100,18 +107,23 @@ func (s *Service) cdrWorker() {
 			}
 
 			subPhone := job.cdr.CallingParty
+
 			sub, ok, err := s.subs.GetByPhone(job.ctx, subPhone)
 			if err != nil {
 				b.setErr(err)
 				b.finishOne()
+
 				continue
 			}
+
 			if !ok {
 				sub = model.Subscriber{PhoneNumber: subPhone}
 			}
 
-			var best *model.TariffRule
-			var cost model.Money
+			var (
+				best *model.TariffRule
+				cost model.Money
+			)
 
 			if job.cdr.Direction == model.DirOutgoing {
 				best = s.matchBestTariff(job.ctx, job.cdr.CalledParty, job.cdr.StartTime)

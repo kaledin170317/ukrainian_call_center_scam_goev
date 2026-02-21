@@ -49,6 +49,7 @@ func (h *Handler) uploadTariffs(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "bad_request", err.Error())
 		return
 	}
+
 	if closer != nil {
 		defer closer.Close()
 	}
@@ -69,6 +70,7 @@ func (h *Handler) uploadSubscribers(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "bad_request", err.Error())
 		return
 	}
+
 	if closer != nil {
 		defer closer.Close()
 	}
@@ -89,14 +91,15 @@ func (h *Handler) tariffCDRStream(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "bad_request", err.Error())
 		return
 	}
+
 	if closer != nil {
 		defer closer.Close()
 	}
 
 	collectCalls := parseBoolQuery(r, "collect_calls", false)
 
-	//totalBytes := int64(0)
-	//if r.ContentLength > 0 {
+	// totalBytes := int64(0)
+	// if r.ContentLength > 0 {
 	//	totalBytes = r.ContentLength
 	//}
 
@@ -115,6 +118,7 @@ func (h *Handler) tariffCDRStream(w http.ResponseWriter, r *http.Request) {
 		}
 
 		writeErr(w, status, code, err.Error())
+
 		return
 	}
 
@@ -141,6 +145,7 @@ func mapTotals(in []model.SubscriberTotal) []SubscriberTotalDTO {
 			CallsCount:   t.CallsCount,
 		})
 	}
+
 	return out
 }
 
@@ -172,6 +177,7 @@ func mapCalls(in []model.RatedCall) []RatedCallDTO {
 			Tariff:        tr,
 		})
 	}
+
 	return out
 }
 
@@ -186,19 +192,24 @@ func getUploadReader(r *http.Request, fieldName string) (io.Reader, io.Closer, e
 		if err != nil {
 			return nil, nil, err
 		}
+
 		for {
 			part, err := mr.NextPart()
 			if err == io.EOF {
 				break
 			}
+
 			if err != nil {
 				return nil, nil, err
 			}
+
 			if part.FormName() == fieldName {
 				return part, part, nil
 			}
+
 			_ = part.Close()
 		}
+
 		return nil, nil, errors.New("file part not found")
 	}
 
@@ -206,6 +217,7 @@ func getUploadReader(r *http.Request, fieldName string) (io.Reader, io.Closer, e
 	if r.Body == nil {
 		return nil, nil, errors.New("empty body")
 	}
+
 	return r.Body, r.Body, nil
 }
 
@@ -214,10 +226,12 @@ func parseBoolQuery(r *http.Request, key string, def bool) bool {
 	if v == "" {
 		return def
 	}
+
 	b, err := strconv.ParseBool(v)
 	if err != nil {
 		return def
 	}
+
 	return b
 }
 

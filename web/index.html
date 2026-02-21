@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Billing UI</title>
+    <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+<div class="page">
+    <h1>Billing UI</h1>
+    <div class="subtitle">Загрузи тарифы → абонентов → CDR. Прогресс показывает загрузку файла (upload).</div>
+
+    <!-- 1) Tariffs -->
+    <section class="card">
+        <h2>1) Tariffs</h2>
+
+        <div class="row">
+            <div class="dropzone" id="tariffsDrop">
+                <div class="dropzone-title">
+                    Перетащи файл сюда или <button type="button" class="linkbtn" id="tariffsBrowse">выбери в проводнике</button>
+                </div>
+                <div class="hint" id="tariffsFileName">Файл не выбран</div>
+            </div>
+
+            <input id="tariffsFile" type="file" accept=".csv,text/csv" hidden />
+
+            <div class="progressWrap">
+                <progress id="tariffsProgress" value="0" max="100"></progress>
+                <div class="progressText" id="tariffsProgressText"></div>
+                <div class="status" id="tariffsStatus"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 2) Subscribers -->
+    <section class="card">
+        <h2>2) Subscribers</h2>
+
+        <div class="row">
+            <div class="dropzone" id="subsDrop">
+                <div class="dropzone-title">
+                    Перетащи файл сюда или <button type="button" class="linkbtn" id="subsBrowse">выбери в проводнике</button>
+                </div>
+                <div class="hint" id="subsFileName">Файл не выбран</div>
+            </div>
+
+            <input id="subsFile" type="file" accept=".csv,text/csv" hidden />
+
+            <div class="progressWrap">
+                <progress id="subsProgress" value="0" max="100"></progress>
+                <div class="progressText" id="subsProgressText"></div>
+                <div class="status" id="subsStatus"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 3) CDR -->
+    <section class="card">
+        <h2>3) CDR tariffing (stream upload)</h2>
+
+        <div class="row">
+            <div class="dropzone" id="cdrDrop">
+                <div class="dropzone-title">
+                    Перетащи файл сюда или <button type="button" class="linkbtn" id="cdrBrowse">выбери в проводнике</button>
+                </div>
+                <div class="hint" id="cdrFileName">Файл не выбран</div>
+            </div>
+
+            <input id="cdrFile" type="file" accept=".txt,text/plain" hidden />
+
+            <div class="progressWrap">
+                <label class="checkbox">
+                    <input type="checkbox" id="collectCalls" />
+                    collect_calls (вернуть список звонков)
+                </label>
+
+                <progress id="cdrProgress" value="0" max="100"></progress>
+                <div class="progressText" id="cdrProgressText"></div>
+                <div class="status" id="cdrStatus"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Result -->
+    <section class="card">
+        <h2>Result</h2>
+        <div class="meta" id="resultMeta">Пока пусто</div>
+
+        <div class="tableWrap" id="totalsWrap" style="display:none;">
+            <table class="table" id="totalsTable">
+                <thead>
+                <tr>
+                    <th>phone_number</th>
+                    <th>client_name</th>
+                    <th>calls</th>
+                    <th>total_cost_kop</th>
+                    <th>total_cost</th>
+                </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+
+        <details id="callsDetails" style="display:none;">
+            <summary>Calls (если collect_calls=true)</summary>
+            <div class="tableWrap">
+                <table class="table" id="callsTable">
+                    <thead>
+                    <tr>
+                        <th>start_time</th>
+                        <th>end_time</th>
+                        <th>calling_party</th>
+                        <th>called_party</th>
+                        <th>direction</th>
+                        <th>disposition</th>
+                        <th>duration</th>
+                        <th>billable_sec</th>
+                        <th>cost_kop</th>
+                        <th>cost</th>
+                        <th>tariff</th>
+                    </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </details>
+    </section>
+</div>
+
+<script src="./app.js"></script>
+</body>
+</html>

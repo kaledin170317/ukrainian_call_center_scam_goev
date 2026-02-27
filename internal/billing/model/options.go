@@ -12,4 +12,5 @@ package model
 // Options configures stream tariffing.
 type Options struct {
 	CollectCalls bool
+	TotalBytes   int64
 }

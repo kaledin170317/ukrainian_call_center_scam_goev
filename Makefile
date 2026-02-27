@@ -11,8 +11,8 @@ LDFLAGS := -s -w
 GCFLAGS :=
 ASMFLAGS :=
 
-OUT_LINUX_AMD64 := $(BIN_DIR)/$(APP_NAME)-linux-amd64.bin
-OUT_LINUX_ARM64 := $(BIN_DIR)/$(APP_NAME)-linux-arm64.bin
+OUT_LINUX_AMD64 := $(BIN_DIR)/$(APP_NAME)-linux-amd64
+OUT_LINUX_ARM64 := $(BIN_DIR)/$(APP_NAME)-linux-arm64
 
 .PHONY: all build build-linux build-linux-arm64 run clean test
 

@@ -280,7 +280,6 @@ func (s *Service) TariffCDRStream(ctx context.Context, r io.Reader, opt model.Op
 
 	select {
 	case <-batch.done:
-		// ok
 	case <-ctx.Done():
 		batch.setErr(ctx.Err())
 		return model.Report{}, ctx.Err()

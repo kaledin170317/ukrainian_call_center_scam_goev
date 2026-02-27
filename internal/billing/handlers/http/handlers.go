@@ -31,7 +31,6 @@ func NewHandler(svc *billing.Service) *Handler {
 }
 
 func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
-	// Go 1.22+ patterns
 	mux.HandleFunc("POST /api/v1/tariffs", h.uploadTariffs)
 	mux.HandleFunc("POST /api/v1/subscribers", h.uploadSubscribers)
 	mux.HandleFunc("POST /api/v1/cdr/tariff", h.tariffCDRStream)
@@ -98,15 +97,14 @@ func (h *Handler) tariffCDRStream(w http.ResponseWriter, r *http.Request) {
 
 	collectCalls := parseBoolQuery(r, "collect_calls", false)
 
-	// totalBytes := int64(0)
-	// if r.ContentLength > 0 {
-	//	totalBytes = r.ContentLength
-	//}
+	totalBytes := int64(0)
+	if r.ContentLength > 0 {
+		totalBytes = r.ContentLength
+	}
 
 	report, err := h.svc.TariffCDRStream(ctx, reader, model.Options{
 		CollectCalls: collectCalls,
-		//TotalBytes:   totalBytes,
-		// ProgressEvery/OnProgress можно подключить позже (SSE/WS), хендлер не меняется.
+		TotalBytes:   totalBytes,
 	})
 	if err != nil {
 		code := "tariff_cdr_failed"

@@ -28,6 +28,7 @@ type cdrJob struct {
 	batch *cdrBatch
 	seq   uint64
 	cdr   model.CDRRecord
+	bytes int64 // approximate byte size of the source row (for progress UI)
 }
 
 type ratedCallSeq struct {
@@ -38,7 +39,9 @@ type ratedCallSeq struct {
 // cdrBatch holds per-call state for TariffCDRStream.
 // It is updated concurrently by background workers.
 type cdrBatch struct {
-	collectCalls bool
+	collectCalls     bool
+	onProcessedBytes func(n int64)
+	demoSleepPerLine time.Duration
 
 	cancel     context.CancelFunc
 	cancelOnce sync.Once
@@ -183,7 +186,8 @@ func (s *Service) TariffCDRStream(ctx context.Context, r io.Reader, opt model.Op
 
 	batch := newCDRBatch(opt.CollectCalls)
 	batch.cancel = cancel
-	batch.cancel = cancel
+	batch.onProcessedBytes = opt.OnProcessedBytes
+	batch.demoSleepPerLine = opt.DemoSleepPerLine
 
 	sc := bufio.NewScanner(r)
 	sc.Buffer(make([]byte, 0, 64*1024), 1024*1024)
@@ -196,7 +200,18 @@ func (s *Service) TariffCDRStream(ctx context.Context, r io.Reader, opt model.Op
 			break
 		}
 
-		fields := strings.Split(sc.Text(), "|")
+		line := sc.Text()
+		// Approx bytes for progress UI: token bytes + '\n'.
+		// Scanner strips '\n'. For the last line without newline this is slightly optimistic,
+		// but ProgressStore caps read_bytes by total_bytes.
+		lineBytes := int64(len(sc.Bytes()) + 1)
+
+		fields := strings.Split(line, "|")
+		if len(fields) < 12 {
+			batch.setErr(fmt.Errorf("cdr: expected at least 12 fields, got %d", len(fields)))
+			cancel()
+			break
+		}
 
 		start, err := time.ParseInLocation(cdrLayout, fields[0], s.loc)
 		if err != nil {
@@ -252,7 +267,7 @@ func (s *Service) TariffCDRStream(ctx context.Context, r io.Reader, opt model.Op
 		}
 
 		batch.incPending()
-		job := cdrJob{ctx: jobCtx, batch: batch, seq: seq, cdr: cdr}
+		job := cdrJob{ctx: jobCtx, batch: batch, seq: seq, cdr: cdr, bytes: lineBytes}
 		seq++
 
 		select {

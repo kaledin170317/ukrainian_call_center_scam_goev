@@ -26,6 +26,20 @@ type UploadResponse struct {
 	Status string `json:"status"`
 }
 
+type PreparedCDRResponse struct {
+	Status          string `json:"status"`
+	PreparedID      string `json:"prepared_id"`
+	FileName        string `json:"file_name"`
+	RowsCount       int64  `json:"rows_count"`
+	NormalizedBytes int64  `json:"normalized_bytes"`
+}
+
+type StartPreparedCDRRequest struct {
+	PreparedID   string `json:"prepared_id"`
+	CollectCalls bool   `json:"collect_calls"`
+	ProgressID   string `json:"progress_id"`
+}
+
 type SubscriberTotalDTO struct {
 	PhoneNumber  string `json:"phone_number"`
 	ClientName   string `json:"client_name,omitempty"`
@@ -60,7 +74,8 @@ type RatedCallDTO struct {
 }
 
 type TariffCDRResponse struct {
-	Status string               `json:"status"`
-	Totals []SubscriberTotalDTO `json:"totals"`
-	Calls  []RatedCallDTO       `json:"calls,omitempty"`
+	Status        string               `json:"status"`
+	CalculationMS float64              `json:"calculation_ms"`
+	Totals        []SubscriberTotalDTO `json:"totals"`
+	Calls         []RatedCallDTO       `json:"calls,omitempty"`
 }

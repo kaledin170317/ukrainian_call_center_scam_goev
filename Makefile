@@ -44,3 +44,6 @@ test:
 
 clean:
 	@rm -rf $(BIN_DIR)
+
+gen:
+	@python3 generator/generate_test_files.py --out example --subscribers 1000 --cdr-lines 1000 --seed 1

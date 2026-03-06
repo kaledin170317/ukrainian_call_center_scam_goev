@@ -131,6 +131,9 @@ func (s *Service) cdrWorker() {
 			}
 
 			b.add(sub, job.cdr, cost, best, job.seq)
+			if b.onProcessedBytes != nil && job.bytes > 0 {
+				b.onProcessedBytes(job.bytes)
+			}
 			b.finishOne()
 		}
 	}

@@ -1,28 +1,39 @@
-// Если бэкенд на другом хосте/порту — выставь, например: "http://localhost:8080"
+function randomID() {
+    if (globalThis.crypto && typeof globalThis.crypto.randomUUID === "function") {
+        return globalThis.crypto.randomUUID();
+    }
+    return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
 const API_BASE = "";
 
-// --- helpers ---
-function qs(id) { return document.getElementById(id); }
+function qs(id) {
+    return document.getElementById(id);
+}
 
 function setStatus(el, kind, text) {
     el.classList.remove("ok", "err");
-    el.classList.add(kind);
-    el.textContent = text;
+    if (kind) el.classList.add(kind);
+    el.textContent = text || "";
 }
 
-function resetProgress(progressEl, progressTextEl) {
-    progressEl.value = 0;
-    progressTextEl.textContent = "";
+function setProgressDeterminate(el, value) {
+    el.removeAttribute("indeterminate");
+    el.value = Math.max(0, Math.min(100, Number(value || 0)));
 }
 
-function kopToRub(kop) {
-    // kop — int64, но в JS будет number
-    const v = Number(kop || 0);
-    return (v / 100).toFixed(2);
+function setProgressIndeterminate(el) {
+    el.removeAttribute("value");
+    el.setAttribute("indeterminate", "true");
 }
 
-function escapeHtml(s) {
-    return String(s ?? "")
+function resetProgress(el, textEl, text = "") {
+    setProgressDeterminate(el, 0);
+    textEl.textContent = text;
+}
+
+function escapeHtml(value) {
+    return String(value ?? "")
         .replaceAll("&", "&amp;")
         .replaceAll("<", "&lt;")
         .replaceAll(">", "&gt;")
@@ -30,97 +41,255 @@ function escapeHtml(s) {
         .replaceAll("'", "&#039;");
 }
 
-// --- Upload core ---
-function setupAutoUpload(opts) {
-    const input = qs(opts.inputId);
-    const drop = qs(opts.dropId);
-    const browse = qs(opts.browseId);
-    const fileName = qs(opts.fileNameId);
-    const progress = qs(opts.progressId);
-    const progressText = qs(opts.progressTextId);
-    const status = qs(opts.statusId);
+function kopToRub(kop) {
+    return (Number(kop || 0) / 100).toFixed(2);
+}
 
-    function uploadFile(file) {
-        if (!file) return;
-
-        fileName.textContent = file.name;
-        resetProgress(progress, progressText);
-        setStatus(status, "ok", "Uploading...");
-
-        const url = opts.urlBuilder();
-        const form = new FormData();
-        form.append("file", file);
-
-        const started = performance.now();
-
-        const xhr = new XMLHttpRequest();
-        xhr.open("POST", url, true);
-
-        xhr.upload.onprogress = (e) => {
-            if (!e.lengthComputable) return;
-            const pct = Math.round((e.loaded / e.total) * 100);
-            progress.value = pct;
-            progressText.textContent = `${pct}% (${Math.round(e.loaded/1024)} KB / ${Math.round(e.total/1024)} KB)`;
-        };
-
-        xhr.onload = () => {
-            const elapsed = Math.round((performance.now() - started) * 10) / 10;
-
-            if (xhr.status >= 200 && xhr.status < 300) {
-                progress.value = 100;
-                setStatus(status, "ok", `OK (HTTP ${xhr.status}, elapsed ~${elapsed} ms)`);
-
-                let json = null;
-                try { json = xhr.responseText ? JSON.parse(xhr.responseText) : null; } catch (_) {}
-
-                if (opts.onSuccess) opts.onSuccess(json);
-            } else {
-                setStatus(status, "err", `Ошибка (HTTP ${xhr.status}): ${xhr.responseText || "unknown"}`);
-            }
-        };
-
-        xhr.onerror = () => setStatus(status, "err", "Ошибка сети при загрузке");
-        xhr.send(form);
-    }
-
-    // browse -> open file picker
-    browse.addEventListener("click", () => input.click());
-
-    // file picked -> auto upload
-    input.addEventListener("change", () => {
-        const file = input.files && input.files[0];
-        uploadFile(file);
-        // чтобы повторный выбор того же файла снова триггерил change
-        input.value = "";
-    });
-
-    // drag&drop
+function wireDropzone(drop, input, onFile) {
     drop.addEventListener("dragover", (e) => {
         e.preventDefault();
         drop.classList.add("dragover");
     });
+
     drop.addEventListener("dragleave", () => drop.classList.remove("dragover"));
+
     drop.addEventListener("drop", (e) => {
         e.preventDefault();
         drop.classList.remove("dragover");
         const file = e.dataTransfer.files && e.dataTransfer.files[0];
-        uploadFile(file);
+        if (file) onFile(file);
     });
 
-    // allow click on dropzone to open picker (удобно)
     drop.addEventListener("click", (e) => {
-        // чтобы клик по ссылке/кнопке внутри dropzone не дублировался
         if (e.target && e.target.closest("button")) return;
         input.click();
     });
+
+    input.addEventListener("change", () => {
+        const file = input.files && input.files[0];
+        if (file) onFile(file);
+        input.value = "";
+    });
 }
 
-// --- Result rendering ---
+function uploadMultipart({ file, url, progressEl, progressTextEl, statusEl, onSuccess }) {
+    const xhr = new XMLHttpRequest();
+    const form = new FormData();
+    form.append("file", file, file.name);
+
+    setProgressDeterminate(progressEl, 0);
+    progressTextEl.textContent = "0%";
+    setStatus(statusEl, null, "Загрузка...");
+
+    xhr.open("POST", url, true);
+
+    xhr.upload.onprogress = (e) => {
+        if (!e.lengthComputable) return;
+        const pct = Math.round((e.loaded / e.total) * 100);
+        setProgressDeterminate(progressEl, pct);
+        progressTextEl.textContent = `${pct}% (${Math.round(e.loaded / 1024)} KB / ${Math.round(e.total / 1024)} KB)`;
+    };
+
+    xhr.onload = () => {
+        if (xhr.status < 200 || xhr.status >= 300) {
+            setStatus(statusEl, "err", `Ошибка (HTTP ${xhr.status}): ${xhr.responseText || "unknown"}`);
+            return;
+        }
+
+        setProgressDeterminate(progressEl, 100);
+        progressTextEl.textContent = "100%";
+
+        let json = null;
+        try {
+            json = xhr.responseText ? JSON.parse(xhr.responseText) : null;
+        } catch (_) {
+            setStatus(statusEl, "err", "Не удалось распарсить ответ сервера");
+            return;
+        }
+
+        onSuccess(json);
+    };
+
+    xhr.onerror = () => {
+        setStatus(statusEl, "err", "Ошибка сети при загрузке");
+    };
+
+    xhr.send(form);
+}
+
+function setupReferenceUpload(cfg) {
+    const input = qs(cfg.inputId);
+    const drop = qs(cfg.dropId);
+    const browse = qs(cfg.browseId);
+    const fileName = qs(cfg.fileNameId);
+    const progress = qs(cfg.progressId);
+    const progressText = qs(cfg.progressTextId);
+    const status = qs(cfg.statusId);
+
+    browse.addEventListener("click", () => input.click());
+
+    wireDropzone(drop, input, (file) => {
+        fileName.textContent = `${file.name} (${Math.round(file.size / 1024)} KB)`;
+        uploadMultipart({
+            file,
+            url: cfg.url,
+            progressEl: progress,
+            progressTextEl: progressText,
+            statusEl: status,
+            onSuccess: () => setStatus(status, "ok", "Файл загружен"),
+        });
+    });
+}
+
+function setupPreparedCDR() {
+    const input = qs("cdrFile");
+    const drop = qs("cdrDrop");
+    const browse = qs("cdrBrowse");
+    const fileName = qs("cdrFileName");
+    const preparedMeta = qs("cdrPreparedMeta");
+    const uploadProgress = qs("cdrUploadProgress");
+    const uploadProgressText = qs("cdrUploadProgressText");
+    const uploadStatus = qs("cdrUploadStatus");
+    const startBtn = qs("cdrStartBtn");
+    const collectCalls = qs("collectCalls");
+    const processingWrap = qs("cdrProcessingWrap");
+    const processingProgress = qs("cdrProcessingProgress");
+    const processingText = qs("cdrProcessingText");
+
+    let preparedID = "";
+    let pollTimer = null;
+    let pollingActive = false;
+
+    function stopPolling() {
+        pollingActive = false;
+        if (pollTimer) {
+            clearTimeout(pollTimer);
+            pollTimer = null;
+        }
+    }
+
+    function startPolling(progressID, statusEl) {
+        stopPolling();
+        pollingActive = true;
+
+        const poll = async () => {
+            try {
+                const resp = await fetch(`${API_BASE}/api/v1/cdr/progress/${encodeURIComponent(progressID)}`, { cache: "no-store" });
+                if (resp.ok) {
+                    const p = await resp.json();
+                    if (p.progress_pct === null || Number(p.total_bytes || 0) <= 0) {
+                        setProgressIndeterminate(processingProgress);
+                        processingText.textContent = `Расчет... ${Math.round((p.read_bytes || 0) / 1024)} KB processed`;
+                    } else {
+                        const pct = Math.max(0, Math.min(100, Number(p.progress_pct || 0)));
+                        setProgressDeterminate(processingProgress, pct);
+                        processingText.textContent = `Расчет... ${pct}% (${Math.round((p.read_bytes || 0) / 1024)} KB / ${Math.round((p.total_bytes || 0) / 1024)} KB)`;
+                    }
+
+                    if (p.status === "error" && p.error) {
+                        setStatus(statusEl, "err", `Ошибка расчета: ${p.error}`);
+                    }
+                }
+            } catch (_) {
+                // ignore polling glitches
+            } finally {
+                if (pollingActive) {
+                    pollTimer = setTimeout(poll, 250);
+                }
+            }
+        };
+
+        pollTimer = setTimeout(poll, 250);
+    }
+
+    function resetPreparedState() {
+        preparedID = "";
+        startBtn.disabled = true;
+        preparedMeta.textContent = "Файл еще не подготовлен";
+        stopPolling();
+        processingWrap.style.display = "none";
+        resetProgress(processingProgress, processingText);
+    }
+
+    async function startCalculation() {
+        if (!preparedID) return;
+
+        const progressID = randomID();
+        const started = performance.now();
+
+        startBtn.disabled = true;
+        processingWrap.style.display = "block";
+        setProgressDeterminate(processingProgress, 0);
+        processingText.textContent = "Расчет запущен...";
+        setStatus(uploadStatus, null, "Идет расчет...");
+        startPolling(progressID, uploadStatus);
+
+        try {
+            const resp = await fetch(`${API_BASE}/api/v1/cdr/start`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    prepared_id: preparedID,
+                    collect_calls: collectCalls.checked,
+                    progress_id: progressID,
+                }),
+            });
+
+            stopPolling();
+            const payload = await resp.json().catch(() => null);
+            if (!resp.ok) {
+                const msg = payload?.error?.message || `HTTP ${resp.status}`;
+                setStatus(uploadStatus, "err", `Ошибка расчета: ${msg}`);
+                return;
+            }
+
+            const clientElapsed = Math.round((performance.now() - started) * 10) / 10;
+            const calcMS = Number(payload?.calculation_ms || 0);
+            setProgressDeterminate(processingProgress, 100);
+            processingText.textContent = `Расчет завершен: ${calcMS.toFixed(1)} ms`;
+            setStatus(uploadStatus, "ok", `Расчет завершен за ${calcMS.toFixed(1)} ms (клиент получил ответ за ${clientElapsed} ms)`);
+            renderReport(payload);
+        } catch (_) {
+            stopPolling();
+            setStatus(uploadStatus, "err", "Ошибка сети при запуске расчета");
+        } finally {
+            startBtn.disabled = !preparedID;
+        }
+    }
+
+    browse.addEventListener("click", () => input.click());
+    startBtn.addEventListener("click", startCalculation);
+
+    wireDropzone(drop, input, (file) => {
+        resetPreparedState();
+        fileName.textContent = `${file.name} (${Math.round(file.size / 1024)} KB)`;
+        setStatus(uploadStatus, null, "Загрузка и нормализация...");
+
+        uploadMultipart({
+            file,
+            url: `${API_BASE}/api/v1/cdr/prepare`,
+            progressEl: uploadProgress,
+            progressTextEl: uploadProgressText,
+            statusEl: uploadStatus,
+            onSuccess: (json) => {
+                preparedID = json?.prepared_id || "";
+                if (!preparedID) {
+                    setStatus(uploadStatus, "err", "Сервер не вернул prepared_id");
+                    return;
+                }
+
+                preparedMeta.textContent = `Подготовлено: ${json.rows_count || 0} строк, ${Math.round(Number(json.normalized_bytes || 0) / 1024)} KB`;
+                setStatus(uploadStatus, "ok", "Файл загружен и нормализован. Можно запускать расчет.");
+                startBtn.disabled = false;
+            },
+        });
+    });
+}
+
 function renderReport(report) {
     const meta = qs("resultMeta");
     const totalsWrap = qs("totalsWrap");
     const totalsTBody = qs("totalsTable").querySelector("tbody");
-
     const callsDetails = qs("callsDetails");
     const callsTBody = qs("callsTable").querySelector("tbody");
 
@@ -133,11 +302,11 @@ function renderReport(report) {
 
     const totals = Array.isArray(report.totals) ? report.totals : [];
     const calls = Array.isArray(report.calls) ? report.calls : [];
+    const calcMS = Number(report.calculation_ms || 0);
 
-    meta.textContent = `status=${report.status}, totals=${totals.length}, calls=${calls.length}`;
+    meta.textContent = `status=${report.status}, calculation_ms=${calcMS.toFixed(1)}, totals=${totals.length}, calls=${calls.length}`;
 
-    // totals table
-    totalsTBody.innerHTML = totals.map(t => {
+    totalsTBody.innerHTML = totals.map((t) => {
         const kop = Number(t.total_cost_kop || 0);
         return `
       <tr>
@@ -152,9 +321,8 @@ function renderReport(report) {
 
     totalsWrap.style.display = "block";
 
-    // calls table (optional)
     if (calls.length > 0) {
-        callsTBody.innerHTML = calls.map(c => {
+        callsTBody.innerHTML = calls.map((c) => {
             const kop = Number(c.cost_kop || 0);
             const tariff = c.tariff
                 ? `${escapeHtml(c.tariff.prefix)} → ${escapeHtml(c.tariff.destination)} (p=${escapeHtml(c.tariff.priority)})`
@@ -183,8 +351,7 @@ function renderReport(report) {
     }
 }
 
-// --- Wire 3 endpoints ---
-setupAutoUpload({
+setupReferenceUpload({
     inputId: "tariffsFile",
     dropId: "tariffsDrop",
     browseId: "tariffsBrowse",
@@ -192,11 +359,10 @@ setupAutoUpload({
     progressId: "tariffsProgress",
     progressTextId: "tariffsProgressText",
     statusId: "tariffsStatus",
-    urlBuilder: () => `${API_BASE}/api/v1/tariffs`,
-    onSuccess: (_) => { /* ничего */ },
+    url: `${API_BASE}/api/v1/tariffs`,
 });
 
-setupAutoUpload({
+setupReferenceUpload({
     inputId: "subsFile",
     dropId: "subsDrop",
     browseId: "subsBrowse",
@@ -204,27 +370,8 @@ setupAutoUpload({
     progressId: "subsProgress",
     progressTextId: "subsProgressText",
     statusId: "subsStatus",
-    urlBuilder: () => `${API_BASE}/api/v1/subscribers`,
-    onSuccess: (_) => { /* ничего */ },
+    url: `${API_BASE}/api/v1/subscribers`,
 });
 
-setupAutoUpload({
-    inputId: "cdrFile",
-    dropId: "cdrDrop",
-    browseId: "cdrBrowse",
-    fileNameId: "cdrFileName",
-    progressId: "cdrProgress",
-    progressTextId: "cdrProgressText",
-    statusId: "cdrStatus",
-    urlBuilder: () => {
-        const collect = qs("collectCalls").checked;
-        return `${API_BASE}/api/v1/cdr/tariff?collect_calls=${collect ? "true" : "false"}`;
-    },
-    onSuccess: (json) => {
-        // здесь сервер возвращает результат тарификации
-        renderReport(json);
-    },
-});
-
-// init empty
+setupPreparedCDR();
 renderReport(null);

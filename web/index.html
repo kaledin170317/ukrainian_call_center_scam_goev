@@ -9,9 +9,8 @@
 <body>
 <div class="page">
     <h1>Billing UI</h1>
-    <div class="subtitle">Загрузи тарифы → абонентов → CDR. Прогресс показывает загрузку файла (upload).</div>
+    <div class="subtitle">Тарифы и абоненты загружаются как раньше. CDR сначала полностью загружается и нормализуется, а кнопка Start запускает только расчет — время считается без этапа нормализации.</div>
 
-    <!-- 1) Tariffs -->
     <section class="card">
         <h2>1) Tariffs</h2>
 
@@ -33,7 +32,6 @@
         </div>
     </section>
 
-    <!-- 2) Subscribers -->
     <section class="card">
         <h2>2) Subscribers</h2>
 
@@ -55,9 +53,8 @@
         </div>
     </section>
 
-    <!-- 3) CDR -->
     <section class="card">
-        <h2>3) CDR tariffing (stream upload)</h2>
+        <h2>3) CDR</h2>
 
         <div class="row">
             <div class="dropzone" id="cdrDrop">
@@ -65,6 +62,7 @@
                     Перетащи файл сюда или <button type="button" class="linkbtn" id="cdrBrowse">выбери в проводнике</button>
                 </div>
                 <div class="hint" id="cdrFileName">Файл не выбран</div>
+                <div class="hint" id="cdrPreparedMeta">Файл еще не подготовлен</div>
             </div>
 
             <input id="cdrFile" type="file" accept=".txt,text/plain" hidden />
@@ -75,14 +73,20 @@
                     collect_calls (вернуть список звонков)
                 </label>
 
-                <progress id="cdrProgress" value="0" max="100"></progress>
-                <div class="progressText" id="cdrProgressText"></div>
-                <div class="status" id="cdrStatus"></div>
+                <button type="button" class="primaryBtn" id="cdrStartBtn" disabled>Start calculation</button>
+
+                <progress id="cdrUploadProgress" value="0" max="100"></progress>
+                <div class="progressText" id="cdrUploadProgressText"></div>
+                <div class="status" id="cdrUploadStatus"></div>
             </div>
+        </div>
+
+        <div class="processingBarWrap" id="cdrProcessingWrap" style="display:none;">
+            <progress id="cdrProcessingProgress" value="0" max="100"></progress>
+            <div class="processingText" id="cdrProcessingText"></div>
         </div>
     </section>
 
-    <!-- Result -->
     <section class="card">
         <h2>Result</h2>
         <div class="meta" id="resultMeta">Пока пусто</div>

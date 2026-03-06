@@ -20,7 +20,7 @@ import (
 
 	httpapi "ukrainian_call_center_scam_goev/internal/billing/handlers/http"
 	memory2 "ukrainian_call_center_scam_goev/internal/billing/repo/memory"
-	"ukrainian_call_center_scam_goev/internal/billing/service"
+	billing "ukrainian_call_center_scam_goev/internal/billing/service"
 	"ukrainian_call_center_scam_goev/web"
 )
 
@@ -32,9 +32,13 @@ func main() {
 
 	// Service
 	svc := billing.New(tariffRepo, subscriberRepo, time.UTC, 2)
+	defer svc.Close()
 
 	// HTTP handlers
-	h := httpapi.NewHandler(svc)
+	h, err := httpapi.NewHandler(svc)
+	if err != nil {
+		log.Fatalf("create HTTP handler: %v", err)
+	}
 
 	mux := http.NewServeMux()
 	h.RegisterRoutes(mux)
@@ -47,9 +51,8 @@ func main() {
 		Addr:              addr,
 		Handler:           handler,
 		ReadHeaderTimeout: 5 * time.Second,
-		// Важно: ReadTimeout не ставим маленьким, иначе стриминг больших файлов может обрываться.
-		IdleTimeout:  60 * time.Second,
-		WriteTimeout: 60 * time.Second,
+		IdleTimeout:       60 * time.Second,
+		WriteTimeout:      60 * time.Second,
 	}
 
 	// graceful shutdown
